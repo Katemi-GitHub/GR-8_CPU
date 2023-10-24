@@ -1,3 +1,6 @@
+# GR-8 CPU
+
+```
 ; Basic Instructions
 0x00 00000 NOP          ; No Operation
 0x01 00001 LD           ; Load from Memory into Register
@@ -39,3 +42,4 @@
 0x0200 - 0x7FFF -> Unpurposed RAM
 0x8000 - 0x8FFF -> Buffer
 0x9000 - 0x9FFF -> Unpurposed RAM
+```
