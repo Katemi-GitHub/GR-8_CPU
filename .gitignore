@@ -1,0 +1,7 @@
+.DS_Store
+.cache
+.hidden
+build/
+gr8
+gr8.exe
+a.out
