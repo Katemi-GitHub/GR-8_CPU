@@ -63,7 +63,7 @@ struct cpu { // The computer's heart, where the magic happens
     u8 interruptKey;
     u16 SP;
 
-    cpu() : PC(256), carry(0), zero(0), negative(0), interruptEnable(false), interruptPending(false), interruptKey(0), SP(0x00FF) {}
+    cpu() : carry(0), zero(0), negative(0), PC(256), interruptEnable(false), interruptPending(false), interruptKey(0), SP(0x00FF) {}
 
     void handleInterrupt() {
         if (interruptEnable && interruptPending) {
@@ -330,10 +330,13 @@ struct cpu { // The computer's heart, where the magic happens
 
     void run(SDL_Renderer* renderer) {
         cpuRom.initializeRom();
-        while (PC < 65536) {
+        while (PC < 65535) {
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_KEYUP) {
                     handleKeyboardEvent(event);
+                }
+                if (event.type == SDL_QUIT) {
+                    exit(1);
                 }
             }
             fetch();
