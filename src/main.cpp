@@ -1,6 +1,13 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+
+#ifdef _WIN32
+#include <Windows.h>
+#elif __APPLE__
+#include <pthread.h>
+#endif
+
 #include <SDL2/SDL.h>
 
 using namespace std;
@@ -8,6 +15,8 @@ using namespace std;
 typedef unsigned char   u8;
 typedef unsigned short  u16;
 typedef unsigned int    u32;
+
+SDL_Event event;
 
 struct rom { // Computer Read Only Memory (ROM), it stores instructions and variables
     u8 data[65536] = {};
@@ -59,7 +68,6 @@ struct cpu { // The computer's heart, where the magic happens
     u8 charData[3] = {0x4A, 0xAE, 0xA0};
     bool interruptEnable;
     bool interruptPending;
-    SDL_Event event;
     u8 interruptKey;
     u16 SP;
 
@@ -80,13 +88,11 @@ struct cpu { // The computer's heart, where the magic happens
     }
 
     void handleKeyboardEvent(SDL_Event& event) {
-        if (event.type == SDL_KEYUP) {
-            u8 key = event.key.keysym.sym & 0xFF;
-            printf("Key pressed = 0x%02X\n", (unsigned char)(key & 0xFF));
-            cpuRam.data[0x7000] = key;
-            interruptKey = 0;
-            triggerKeyboardInterrupt();
-        }
+        u8 key = event.key.keysym.sym & 0xFF;
+        printf("Key pressed = 0x%02X\n", (unsigned char)(key & 0xFF));
+        cpuRam.data[0x7000] = key;
+        interruptKey = 0;
+        triggerKeyboardInterrupt();
     }
 
     void handleEvents() {
@@ -136,14 +142,14 @@ struct cpu { // The computer's heart, where the magic happens
 
     void fetch() {
         IR = cpuRom.data[PC];
-        printf("Instruction Register = 0x%02X\n", (unsigned char)(IR & 0xFF));
-        printf("Program Counter = 0x%04X\n", (unsigned short)(PC & 0xFFFF));
-        printf("Register A = 0x%02X\n", (unsigned char)(registers[0] & 0xFF));
-        printf("Register B = 0x%02X\n", (unsigned char)(registers[1] & 0xFF));
-        printf("Register C = 0x%02X\n", (unsigned char)(registers[2] & 0xFF));
-        printf("Carry = 0x%02X\n", (unsigned char)(carry & 0xFF));
-        printf("Zero = 0x%02X\n", (unsigned char)(zero & 0xFF));
-        printf("Negative = 0x%02X\n", (unsigned char)(negative & 0xFF));
+        // printf("Instruction Register = 0x%02X\n", (unsigned char)(IR & 0xFF));
+        // printf("Program Counter = 0x%04X\n", (unsigned short)(PC & 0xFFFF));
+        // printf("Register A = 0x%02X\n", (unsigned char)(registers[0] & 0xFF));
+        // printf("Register B = 0x%02X\n", (unsigned char)(registers[1] & 0xFF));
+        // printf("Register C = 0x%02X\n", (unsigned char)(registers[2] & 0xFF));
+        // printf("Carry = 0x%02X\n", (unsigned char)(carry & 0xFF));
+        // printf("Zero = 0x%02X\n", (unsigned char)(zero & 0xFF));
+        // printf("Negative = 0x%02X\n", (unsigned char)(negative & 0xFF));
         PC++;
     }
 
@@ -328,23 +334,65 @@ struct cpu { // The computer's heart, where the magic happens
         }
     }
 
-    void run(SDL_Renderer* renderer) {
-        cpuRom.initializeRom();
-        while (PC < 65535) {
-            while (SDL_PollEvent(&event)) {
-                if (event.type == SDL_KEYUP) {
-                    handleKeyboardEvent(event);
-                }
-                if (event.type == SDL_QUIT) {
-                    exit(1);
-                }
+    void run(SDL_Renderer* renderer);
+};
+
+#ifdef _WIN32
+DWORD WINAPI keyboardHandle(LPVOID lpParam) {
+    cpu* CPU = (cpu*)lpParam;
+    while(true) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_KEYUP) {
+                CPU->handleKeyboardEvent(event);
             }
-            fetch();
-            execute(renderer);
-            getchar();
+            if (event.type == SDL_QUIT) {
+                exit(1);
+            }
         }
     }
-};
+    return 0;
+}
+#elif __APPLE__
+void* keyboardHandle(void* arg) {
+    cpu* CPU = (cpu*)arg;
+    while(true) {
+        while (SDL_PollEvent(&event)) {
+            printf("event");
+            if (event.type == SDL_KEYUP) {
+                CPU->handleKeyboardEvent(event);
+                printf("keyup");
+            }
+            if (event.type == SDL_QUIT) {
+                exit(1);
+            }
+        }
+    }
+    return NULL;
+}
+#endif
+
+void cpu::run(SDL_Renderer* renderer) {
+    cpuRom.initializeRom();
+
+#ifdef _WIN32
+    HANDLE keyboardThreadHandle = CreateThread(NULL, 0, keyboardHandle, NULL, 0, NULL);
+    while (PC < 65535) {
+        fetch();
+        execute(renderer);
+        //getchar();
+    }
+    WaitForSingleObject(keyboardThreadHandle, INFINITE);
+#elif __APPLE__
+    pthread_t keyboardThreadID;
+    pthread_create(&keyboardThreadID, NULL, keyboardHandle, NULL);
+    while (PC < 65535) {
+        fetch();
+        execute(renderer);
+        //getchar();
+    }
+    pthread_join(keyboardThreadID, NULL);
+#endif
+}
 
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
