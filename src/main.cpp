@@ -95,15 +95,6 @@ struct cpu { // The computer's heart, where the magic happens
         triggerKeyboardInterrupt();
     }
 
-    void handleEvents() {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_KEYUP) {
-                triggerKeyboardInterrupt();
-            }
-        }
-    }
-
     u8 add(u8 R1, u8 R2) {
         u16 Sum = static_cast<u16>(R1) + static_cast<u16>(R2);
         carry = static_cast<u8>(Sum >> 8);
@@ -157,8 +148,6 @@ struct cpu { // The computer's heart, where the magic happens
         if (interruptEnable) {
             handleInterrupt();
         }
-
-        handleEvents();
 
         switch(IR) {
             case 0x00:
